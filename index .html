@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo Raytracer Dasar - Satu Bola (Fixed)</title>
+    <style>
+        body { 
+            margin: 20px; 
+            font-family: Arial, sans-serif; 
+            background-color: #1a1a1a; 
+            color: #ffffff; 
+        }
+        canvas { 
+            border: 2px solid #444; 
+            background-color: #000; 
+            display: block; 
+            margin: 20px auto; 
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+        }
+        h1, p { 
+            text-align: center; 
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Demo Raytracer Dasar (Fixed)</h1>
+    <p>Menampilkan bola putih dengan sistem koordinat yang benar</p>
+    <canvas id="raytraceCanvas" width="500" height="500"></canvas>
+
+    <script>
+        // Helper functions untuk operasi vektor 3D
+        const Vec3 = {
+            create: (x = 0, y = 0, z = 0) => ({ x, y, z }),
+            add: (v1, v2) => Vec3.create(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z),
+            subtract: (v1, v2) => Vec3.create(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z),
+            scale: (v, s) => Vec3.create(v.x * s, v.y * s, v.z * s),
+            dot: (v1, v2) => v1.x * v2.x + v1.y * v2.y + v1.z * v2.z,
+            length: (v) => Math.sqrt(Vec3.dot(v, v)),
+            normalize: (v) => {
+                const len = Vec3.length(v);
+                return len > 0 ? Vec3.scale(v, 1/len) : Vec3.create();
+            }
+        };
+
+        // Inisialisasi canvas
+        const canvas = document.getElementById('raytraceCanvas');
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+
+        // Konfigurasi scene
+        const scene = {
+            camera: {
+                position: Vec3.create(0, 0, 2),  // Posisi kamera di z = 2
+                viewPlaneZ: -1                    // View plane di z = -1
+            },
+            sphere: {
+                center: Vec3.create(0, 0, 0),     // Pusat bola di origin
+                radius: 1,
+                color: '#ffffff'                  // Warna putih
+            },
+            backgroundColor: '#000000'            // Latar hitam
+        };
+
+        // Fungsi intersection ray-sphere
+        function intersectSphere(rayOrigin, rayDirection, sphere) {
+            const oc = Vec3.subtract(rayOrigin, sphere.center);
+            const a = Vec3.dot(rayDirection, rayDirection);
+            const b = 2 * Vec3.dot(oc, rayDirection);
+            const c = Vec3.dot(oc, oc) - sphere.radius * sphere.radius;
+            const discriminant = b*b - 4*a*c;
+
+            if (discriminant < 0) return null;
+            
+            const sqrtD = Math.sqrt(discriminant);
+            const t1 = (-b - sqrtD) / (2*a);
+            const t2 = (-b + sqrtD) / (2*a);
+
+            if (t1 > 0.001) return t1;
+            if (t2 > 0.001) return t2;
+            return null;
+        }
+
+        // Proses ray tracing
+        function render() {
+            const startTime = performance.now();
+            
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    // Hitung koordinat viewport (-1 ke 1 dengan koreksi aspect ratio)
+                    const screenX = (2 * (x/width) - 1) * (width/height);
+                    const screenY = 1 - (2 * (y/height));
+                    
+                    // Titik di view plane
+                    const viewPlanePoint = Vec3.create(screenX, screenY, scene.camera.viewPlaneZ);
+                    
+                    // Arah sinar (dari kamera ke view plane)
+                    const rayDir = Vec3.normalize(
+                        Vec3.subtract(viewPlanePoint, scene.camera.position)
+                    );
+
+                    // Cek intersection
+                    const t = intersectSphere(scene.camera.position, rayDir, scene.sphere);
+                    
+                    // Warna pixel
+                    ctx.fillStyle = t !== null ? scene.sphere.color : scene.backgroundColor;
+                    ctx.fillRect(x, y, 1, 1);
+
+                    // Debug: pixel tengah
+                    if (x === 250 && y === 250) {
+                        console.log('Pixel tengah:', {
+                            screenX,
+                            screenY,
+                            rayDir,
+                            t
+                        });
+                    }
+                }
+            }
+            
+            const renderTime = performance.now() - startTime;
+            console.log(`Render selesai dalam ${renderTime.toFixed(2)} ms`);
+        }
+
+        // Jalankan render
+        render();
+    </script>
+</body>
+</html>
